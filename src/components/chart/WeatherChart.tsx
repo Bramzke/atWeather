@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import ReactECharts from 'echarts-for-react';
+import { useMemo, useRef, useEffect } from 'react';
+import echarts from '../../utils/echartsConfig';
 import type { Feature } from '../../models/WeatherResponse';
 import type { ParameterSelection } from '../../models/ChartTypes';
 import { interpolateData } from '../../utils/interpolation';
@@ -30,6 +30,32 @@ const PARAMETER_CONFIG: ParameterConfig[] = [
   { key: 'rainfall', apiParam: 'RR', label: 'Niederschlag', seriesType: 'line' },
   { key: 'sunshine', apiParam: 'SO', label: 'Sonnenschein', seriesType: 'bar' }
 ];
+
+// Custom Hook für ECharts mit Tree-Shaking
+function useECharts(option: any) {
+  const chartRef = useRef<HTMLDivElement>(null);
+  const instanceRef = useRef<echarts.ECharts | null>(null);
+
+  useEffect(() => {
+    if (!chartRef.current) return;
+
+    // Chart nur einmal initialisieren
+    if (!instanceRef.current) {
+      instanceRef.current = echarts.init(chartRef.current);
+    }
+
+    // Option aktualisieren
+    instanceRef.current.setOption(option, { notMerge: true, lazyUpdate: true });
+
+    // Cleanup beim Unmount
+    return () => {
+      instanceRef.current?.dispose();
+      instanceRef.current = null;
+    };
+  }, [option]);
+
+  return chartRef;
+}
 
 export const WeatherChart = ({ feature, timestamps, selectedParams, syncedScales }: Props) => {
   const option = useMemo(() => {
@@ -235,9 +261,11 @@ export const WeatherChart = ({ feature, timestamps, selectedParams, syncedScales
     };
   }, [feature, selectedParams, syncedScales, timestamps]);
 
+  const chartRef = useECharts(option);
+
   return (
     <div className="chart-container" style={{ position: 'relative', height: '600px' }}>
-      <ReactECharts option={option} style={{ height: '100%', width: '100%' }} notMerge lazyUpdate />
+      <div ref={chartRef} style={{ height: '100%', width: '100%' }} />
     </div>
   );
 };

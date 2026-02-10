@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { HouseIcon, ArrowUpRightIcon } from '../ui/Icons';
 
 export const Navbar = () => {
   return (
@@ -20,7 +21,7 @@ export const Navbar = () => {
           <ul className="navbar-nav">
             <li className="nav-item">
               <Link className="nav-link" to="/">
-                <i className="bi bi-house-door-fill"></i> Stationen
+                <HouseIcon /> Stationen
               </Link>
             </li>
             <li className="nav-item">
@@ -30,7 +31,7 @@ export const Navbar = () => {
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <i className="bi bi-box-arrow-up-right"></i> GeoSphere API
+                <ArrowUpRightIcon /> GeoSphere API
               </a>
             </li>
           </ul>

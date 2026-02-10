@@ -5,6 +5,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { de } from 'date-fns/locale';
 import { WeatherChart } from '../chart/WeatherChart';
 import { ParameterSelector } from '../ui/ParameterSelector';
+import { FullscreenIcon } from '../ui/Icons';
 import { WeatherApiService } from '../../services/weatherApiService';
 import type { WeatherResponse } from '../../models/WeatherResponse';
 import type { ParameterSelection } from '../../models/ChartTypes';
@@ -151,7 +152,7 @@ export const Weather = () => {
                     onChange={(e) => setIsFullscreen(e.target.checked)}
                   />
                   <label className="form-check-label" htmlFor="fullscreen">
-                    <i className="bi bi-arrows-fullscreen"></i> Vollbild
+                    <FullscreenIcon /> Vollbild
                   </label>
                 </div>
               </div>
