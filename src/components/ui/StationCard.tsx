@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { WeatherStation } from '../../models/WeatherStation';
 
 interface Props {
@@ -7,7 +8,7 @@ interface Props {
   onToggle: (stationId: string) => void;
 }
 
-export const StationCard = ({ station, selected, disabled, onToggle }: Props) => {
+const StationCardComponent = ({ station, selected, disabled, onToggle }: Props) => {
   return (
     <div className="col">
       <div
@@ -54,3 +55,6 @@ export const StationCard = ({ station, selected, disabled, onToggle }: Props) =>
     </div>
   );
 };
+
+// React.memo verhindert unnötige Re-Renders wenn Props unverändert sind
+export const StationCard = memo(StationCardComponent);

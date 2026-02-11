@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -12,6 +12,7 @@ import type { ParameterSelection } from '../../models/ChartTypes';
 import { getStationById } from '../../data/stations';
 import { roundToTenMinutes } from '../../utils/dateUtils';
 import { useScaleSynchronization } from '../../hooks/useScaleSynchronization';
+import { useInterpolatedData } from '../../hooks/useInterpolatedData';
 
 export const Weather = () => {
   const [searchParams] = useSearchParams();
@@ -34,13 +35,33 @@ export const Weather = () => {
   });
   const [syncScales, setSyncScales] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(true);
-  const syncedScales = useScaleSynchronization(weatherData, selectedParams, syncScales);
 
-  const handleParamChange = (param: string, value: boolean) => {
+  // Cache für interpolierte Daten (verhindert doppelte Berechnungen)
+  const interpolatedDataCache = useInterpolatedData(weatherData);
+  const syncedScales = useScaleSynchronization(weatherData, selectedParams, syncScales, interpolatedDataCache);
+
+  // Event Handler mit useCallback für Performance
+  const handleSyncScalesChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSyncScales(e.target.checked);
+  }, []);
+
+  const handleFullscreenChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setIsFullscreen(e.target.checked);
+  }, []);
+
+  const handleStartDateChange = useCallback((date: Date | null) => {
+    if (date) setStartDate(roundToTenMinutes(date));
+  }, []);
+
+  const handleEndDateChange = useCallback((date: Date | null) => {
+    if (date) setEndDate(roundToTenMinutes(date));
+  }, []);
+
+  const handleParamChange = useCallback((param: string, value: boolean) => {
     setSelectedParams(prev => ({ ...prev, [param]: value }));
-  };
+  }, []);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (stationIds.length === 0) {
       setErrorMessage('');
       return;
@@ -80,7 +101,7 @@ export const Weather = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [stationIds, startDate, endDate, selectedParams]);
 
   useEffect(() => {
     void loadData();
@@ -97,7 +118,7 @@ export const Weather = () => {
               <label className="form-label">Von:</label>
               <DatePicker
                 selected={startDate}
-                onChange={(date: Date | null) => date && setStartDate(roundToTenMinutes(date))}
+                onChange={handleStartDateChange}
                 showTimeSelect
                 timeFormat="HH:mm"
                 timeIntervals={10}
@@ -112,7 +133,7 @@ export const Weather = () => {
               <label className="form-label">Bis:</label>
               <DatePicker
                 selected={endDate}
-                onChange={(date: Date | null) => date && setEndDate(roundToTenMinutes(date))}
+                onChange={handleEndDateChange}
                 showTimeSelect
                 timeFormat="HH:mm"
                 timeIntervals={10}
@@ -137,7 +158,7 @@ export const Weather = () => {
                     className="form-check-input"
                     id="sync-scales"
                     checked={syncScales}
-                    onChange={(e) => setSyncScales(e.target.checked)}
+                    onChange={handleSyncScalesChange}
                   />
                   <label className="form-check-label" htmlFor="sync-scales">
                     Skalen angleichen
@@ -149,7 +170,7 @@ export const Weather = () => {
                     className="form-check-input"
                     id="fullscreen"
                     checked={isFullscreen}
-                    onChange={(e) => setIsFullscreen(e.target.checked)}
+                    onChange={handleFullscreenChange}
                   />
                   <label className="form-check-label" htmlFor="fullscreen">
                     <FullscreenIcon /> Vollbild
@@ -207,6 +228,7 @@ export const Weather = () => {
                   timestamps={weatherData.timestamps}
                   selectedParams={selectedParams}
                   syncedScales={syncedScales}
+                  interpolatedDataCache={interpolatedDataCache}
                 />
               </div>
             </div>

@@ -1,17 +1,18 @@
-import { useMemo, useRef, useEffect } from 'react';
+import { useMemo, useRef, useEffect, memo } from 'react';
 import echarts from '../../utils/echartsConfig';
 import type { Feature } from '../../models/WeatherResponse';
 import type { ParameterSelection } from '../../models/ChartTypes';
-import { interpolateData } from '../../utils/interpolation';
 import { formatTimestamp } from '../../utils/dateUtils';
 import { getParameterColor, getYAxisId, getParameterUnit } from '../../utils/chartHelpers';
 import type { ScaleConfig } from '../../hooks/useScaleSynchronization';
+import type { useInterpolatedData } from '../../hooks/useInterpolatedData';
 
 interface Props {
   feature: Feature;
   timestamps: string[];
   selectedParams: ParameterSelection;
   syncedScales?: ScaleConfig;
+  interpolatedDataCache: ReturnType<typeof useInterpolatedData>;
 }
 
 type ParameterType = keyof ParameterSelection;
@@ -57,7 +58,7 @@ function useECharts(option: any) {
   return chartRef;
 }
 
-export const WeatherChart = ({ feature, timestamps, selectedParams, syncedScales }: Props) => {
+const WeatherChartComponent = ({ feature, timestamps, selectedParams, syncedScales, interpolatedDataCache }: Props) => {
   const option = useMemo(() => {
     const labels = timestamps.map(formatTimestamp);
     const yAxis: Record<string, unknown>[] = [];
@@ -87,13 +88,25 @@ export const WeatherChart = ({ feature, timestamps, selectedParams, syncedScales
         rightAxisCount += 1;
       }
 
+      // Nutze gecachte Interpolation (verhindert doppelte Berechnungen)
+      const interpolatedData = interpolatedDataCache.get(feature.properties.station, config.apiParam);
+
+      // Berechne lokale Min/Max wenn keine Synchronisierung aktiv ist
+      let localMin: number | undefined = syncedScale?.min;
+      let localMax: number | undefined = syncedScale?.max;
+
+      if (!syncedScale && interpolatedData && interpolatedData.length > 0) {
+        localMin = Math.min(...interpolatedData);
+        localMax = Math.max(...interpolatedData);
+      }
+
       yAxis.push({
         id: yAxisId,
         type: 'value',
         position,
         offset,
-        min: syncedScale?.min,
-        max: syncedScale?.max,
+        min: localMin,
+        max: localMax,
         axisLine: { show: true },
         axisTick: { show: true },
         splitLine: { show: isFirstAxis },
@@ -107,7 +120,7 @@ export const WeatherChart = ({ feature, timestamps, selectedParams, syncedScales
         name: `${config.label} (${getParameterUnit(config.key)})`,
         type: config.seriesType,
         yAxisIndex,
-        data: interpolateData(parameter.data),
+        data: interpolatedData || [],
         smooth: false,
         symbol: 'none',
         barMaxWidth: 18,
@@ -259,7 +272,7 @@ export const WeatherChart = ({ feature, timestamps, selectedParams, syncedScales
       yAxis,
       series
     };
-  }, [feature, selectedParams, syncedScales, timestamps]);
+  }, [feature, selectedParams, syncedScales, timestamps, interpolatedDataCache]);
 
   const chartRef = useECharts(option);
 
@@ -269,3 +282,6 @@ export const WeatherChart = ({ feature, timestamps, selectedParams, syncedScales
     </div>
   );
 };
+
+// React.memo verhindert unnötige Re-Renders wenn Props unverändert sind
+export const WeatherChart = memo(WeatherChartComponent);

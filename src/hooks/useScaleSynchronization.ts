@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import type { WeatherResponse } from '../models/WeatherResponse';
 import type { ParameterSelection } from '../models/ChartTypes';
-import { interpolateData } from '../utils/interpolation';
 import { getYAxisId } from '../utils/chartHelpers';
+import type { useInterpolatedData } from './useInterpolatedData';
 
 export interface AxisScale {
   min?: number;
@@ -22,7 +22,8 @@ type ParameterType = 'temperature' | 'humidity' | 'rainfall' | 'sunshine';
 export function useScaleSynchronization(
   weatherData: WeatherResponse | null,
   selectedParams: ParameterSelection,
-  syncScales: boolean
+  syncScales: boolean,
+  interpolatedDataCache: ReturnType<typeof useInterpolatedData>
 ): ScaleConfig {
   return useMemo(() => {
     // Early return: Auto-Scaling wenn deaktiviert oder keine Daten
@@ -61,8 +62,12 @@ export function useScaleSynchronization(
           continue;
         }
 
-        // Wende Interpolation an (matched Blazor-Verhalten)
-        const interpolated = interpolateData(paramData.data);
+        // Nutze gecachte Interpolation (verhindert doppelte Berechnungen)
+        const interpolated = interpolatedDataCache.get(feature.properties.station, apiParam);
+
+        if (!interpolated) {
+          continue;
+        }
 
         // Finde Min/Max in diesem Dataset
         for (const value of interpolated) {
@@ -87,5 +92,5 @@ export function useScaleSynchronization(
     }
 
     return scaleConfig;
-  }, [weatherData, selectedParams, syncScales]);
+  }, [weatherData, selectedParams, syncScales, interpolatedDataCache]);
 }

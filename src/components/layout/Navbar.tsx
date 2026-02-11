@@ -24,14 +24,35 @@ export const Navbar = () => {
                 <HouseIcon /> Stationen
               </Link>
             </li>
+            
             <li className="nav-item">
               <a
                 className="nav-link"
-                href="https://dataset.api.hub.geosphere.at"
+                href="https://dataset.api.hub.geosphere.at/app/frontend/station/historical/tawes-v1-10min"
                 target="_blank"
                 rel="noopener noreferrer"
               >
                 <ArrowUpRightIcon /> GeoSphere API
+              </a>
+            </li>
+            <li className="nav-item">
+              <a
+                className="nav-link"
+                href="https://www.geosphere.at/de"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <ArrowUpRightIcon /> GeoSphere Wettervorhersage
+              </a>
+            </li>
+            <li className="nav-item">
+              <a
+                className="nav-link"
+                href="https://www.ventusky.com/de#p=47.65;13.20;7"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <ArrowUpRightIcon /> Ventusky.com
               </a>
             </li>
           </ul>
