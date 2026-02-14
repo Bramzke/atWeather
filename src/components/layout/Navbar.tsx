@@ -24,7 +24,9 @@ export const Navbar = () => {
                 <HouseIcon /> Stationen
               </Link>
             </li>
-            
+          </ul>
+
+          <ul className="navbar-nav ms-auto d-flex gap-3">
             <li className="nav-item">
               <a
                 className="nav-link"
