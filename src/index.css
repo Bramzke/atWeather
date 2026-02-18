@@ -12,8 +12,8 @@
   --bs-border-color: rgba(148, 163, 184, 0.25);
   --bs-border-radius: 0.9rem;
   --bs-border-radius-lg: 1.1rem;
-  --bs-card-bg: #111827;
-  --bs-card-cap-bg: #0f172a;
+  --bs-card-bg: #1e293b;
+  --bs-card-cap-bg: #172033;
   --bs-card-color: #e5e7eb;
   --bs-box-shadow: 0 16px 40px rgba(2, 6, 23, 0.45);
 }
@@ -61,10 +61,12 @@ a {
 .card {
   border: 1px solid var(--bs-border-color);
   box-shadow: var(--bs-box-shadow);
+  background-color: #1e293b;
 }
 
 .card-header {
   border-bottom: 1px solid var(--bs-border-color);
+  background-color: #172033;
 }
 
 .btn-primary {
