@@ -1,15 +1,29 @@
 interface Props {
-  temperature: boolean;
-  humidity: boolean;
-  rainfall: boolean;
-  sunshine: boolean;
-  onChange: (param: string, value: boolean) => void;
+  temperature: boolean; // Temperatur (TL) ausgewählt
+  humidity: boolean;    // Luftfeuchtigkeit (RF) ausgewählt
+  rainfall: boolean;    // Niederschlag (RR) ausgewählt
+  sunshine: boolean;    // Sonnenschein (SO) ausgewählt
+  onChange: (param: string, value: boolean) => void; // Callback bei Änderung
 }
 
+/**
+ * ParameterSelector-Komponente: Checkbox-Gruppe zur Auswahl der Wetterparameter.
+ *
+ * Wird auf der Weather-Seite angezeigt und steuert welche Messwerte
+ * von der GeoSphere API abgefragt und im Diagramm dargestellt werden.
+ *
+ * Verfügbare Parameter:
+ * - Temperatur   → API: TL (Lufttemperatur in °C)
+ * - Luftfeuchtigkeit → API: RF (Relative Feuchte in %)
+ * - Niederschlag → API: RR (Niederschlag in mm)
+ * - Sonnenschein → API: SO (Sonnenscheindauer in min)
+ */
 export const ParameterSelector = ({ temperature, humidity, rainfall, sunshine, onChange }: Props) => {
   return (
     <div className="mb-3">
       <label className="form-label">Parameter:</label>
+
+      {/* Temperatur */}
       <div className="form-check">
         <input
           type="checkbox"
@@ -20,6 +34,8 @@ export const ParameterSelector = ({ temperature, humidity, rainfall, sunshine, o
         />
         <label className="form-check-label" htmlFor="param-temp">Temperatur</label>
       </div>
+
+      {/* Luftfeuchtigkeit */}
       <div className="form-check">
         <input
           type="checkbox"
@@ -30,6 +46,8 @@ export const ParameterSelector = ({ temperature, humidity, rainfall, sunshine, o
         />
         <label className="form-check-label" htmlFor="param-humid">Luftfeuchtigkeit</label>
       </div>
+
+      {/* Niederschlag */}
       <div className="form-check">
         <input
           type="checkbox"
@@ -40,6 +58,8 @@ export const ParameterSelector = ({ temperature, humidity, rainfall, sunshine, o
         />
         <label className="form-check-label" htmlFor="param-rain">Niederschlag</label>
       </div>
+
+      {/* Sonnenschein */}
       <div className="form-check">
         <input
           type="checkbox"

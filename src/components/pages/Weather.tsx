@@ -14,33 +14,53 @@ import { roundToTenMinutes } from '../../utils/dateUtils';
 import { useScaleSynchronization } from '../../hooks/useScaleSynchronization';
 import { useInterpolatedData } from '../../hooks/useInterpolatedData';
 
+/**
+ * Weather-Seite: Diagrammdarstellung der Wetterdaten.
+ *
+ * Liest die Stations-IDs aus den URL-Query-Parametern (?id=...&id=...),
+ * lädt die historischen Messdaten von der GeoSphere API und zeigt
+ * für jede Station ein eigenes ECharts-Diagramm an.
+ *
+ * Funktionen:
+ * - Datumsbereich wählen (Datepicker, 10-Minuten-Raster der API)
+ * - Parameter auswählen (Temperatur, Luftfeuchtigkeit, Niederschlag, Sonnenschein)
+ * - Skalensynchronisierung: gleiche Y-Achsen-Grenzen über alle Stationen
+ * - Vollbild-Modus (container-fluid statt container)
+ */
 export const Weather = () => {
+  // Stations-IDs aus dem URL-Query-String lesen (mehrere ?id=... Parameter möglich)
   const [searchParams] = useSearchParams();
   const stationIds = searchParams.getAll('id');
 
-  // Standard: Letzte 7 Tage
+  // Standardzeitraum: letzte 7 Tage, auf 10 Minuten abgerundet (API-Auflösung)
   const defaultEnd = roundToTenMinutes(new Date());
   const defaultStart = roundToTenMinutes(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
 
+  // --- Zustandsvariablen ---
   const [startDate, setStartDate] = useState<Date>(defaultStart);
   const [endDate, setEndDate] = useState<Date>(defaultEnd);
   const [weatherData, setWeatherData] = useState<WeatherResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  // Standardmäßig nur Temperatur aktiviert
   const [selectedParams, setSelectedParams] = useState<ParameterSelection>({
     temperature: true,
     humidity: false,
     rainfall: false,
     sunshine: false
   });
-  const [syncScales, setSyncScales] = useState(true);
-  const [isFullscreen, setIsFullscreen] = useState(true);
 
-  // Cache für interpolierte Daten (verhindert doppelte Berechnungen)
+  const [syncScales, setSyncScales] = useState(true);     // Skalensynchronisierung aktiv
+  const [isFullscreen, setIsFullscreen] = useState(true);  // Vollbild-Modus aktiv
+
+  // --- Performance-Optimierungen ---
+  // Interpolations-Cache: berechnet fehlende Messwerte einmalig für alle Charts
   const interpolatedDataCache = useInterpolatedData(weatherData);
+  // Synchronisierte Y-Achsen-Grenzen (gleiche Skala für alle Stationen pro Parameter)
   const syncedScales = useScaleSynchronization(weatherData, selectedParams, syncScales, interpolatedDataCache);
 
-  // Event Handler mit useCallback für Performance
+  // --- Event Handler (useCallback für stabile Funktionsreferenzen) ---
   const handleSyncScalesChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setSyncScales(e.target.checked);
   }, []);
@@ -61,6 +81,11 @@ export const Weather = () => {
     setSelectedParams(prev => ({ ...prev, [param]: value }));
   }, []);
 
+  /**
+   * Lädt die Wetterdaten von der GeoSphere API.
+   * Baut den Parameter-String (z.B. "TL,RF") aus der Benutzerauswahl auf
+   * und ruft den WeatherApiService mit Stations-IDs und Zeitraum auf.
+   */
   const loadData = useCallback(async () => {
     if (stationIds.length === 0) {
       setErrorMessage('');
@@ -71,12 +96,12 @@ export const Weather = () => {
     setErrorMessage('');
 
     try {
-      // Parameter-String erstellen (wie im Blazor: "TL,RF,RR,SO")
+      // Aktive API-Parameter aus der Benutzerauswahl zusammenstellen
       const params: string[] = [];
-      if (selectedParams.temperature) params.push('TL');
-      if (selectedParams.humidity) params.push('RF');
-      if (selectedParams.rainfall) params.push('RR');
-      if (selectedParams.sunshine) params.push('SO');
+      if (selectedParams.temperature) params.push('TL'); // Lufttemperatur
+      if (selectedParams.humidity) params.push('RF');    // Relative Luftfeuchtigkeit
+      if (selectedParams.rainfall) params.push('RR');   // Niederschlag
+      if (selectedParams.sunshine) params.push('SO');   // Sonnenscheindauer
 
       if (params.length === 0) {
         setErrorMessage('Bitte mindestens einen Parameter auswählen');
@@ -103,17 +128,23 @@ export const Weather = () => {
     }
   }, [stationIds, startDate, endDate, selectedParams]);
 
+  // Daten beim ersten Laden der Seite automatisch abrufen.
+  // Bewusst ohne loadData in den Dependencies, um eine Endlosschleife zu vermeiden.
   useEffect(() => {
     void loadData();
-    // Only run once when the page is opened.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
+    // Vollbild: container-fluid (volle Breite) oder container (zentriert mit max-width)
     <div className={isFullscreen ? 'container-fluid' : 'container'}>
+
+      {/* Steuerungsleiste: Zeitraum, Parameter, Optionen und Laden-Button */}
       <div className="card mb-4">
         <div className="card-body">
           <div className="row g-3 align-items-start">
+
+            {/* Startdatum-Auswahl */}
             <div className="col-12 col-lg-3">
               <label className="form-label">Von:</label>
               <DatePicker
@@ -121,14 +152,16 @@ export const Weather = () => {
                 onChange={handleStartDateChange}
                 showTimeSelect
                 timeFormat="HH:mm"
-                timeIntervals={10}
+                timeIntervals={10}            // 10-Minuten-Raster (API-Datenauflösung)
                 dateFormat="dd.MM.yyyy HH:mm"
-                locale={de}
+                locale={de}                   // Deutsches Datumsformat
                 className="form-control"
                 placeholderText="dd.MM.yyyy HH:mm"
-                maxDate={endDate}
+                maxDate={endDate}             // Startdatum darf nicht nach Enddatum liegen
               />
             </div>
+
+            {/* Enddatum-Auswahl */}
             <div className="col-12 col-lg-3">
               <label className="form-label">Bis:</label>
               <DatePicker
@@ -141,17 +174,22 @@ export const Weather = () => {
                 locale={de}
                 className="form-control"
                 placeholderText="dd.MM.yyyy HH:mm"
-                minDate={startDate}
+                minDate={startDate}           // Enddatum darf nicht vor Startdatum liegen
               />
             </div>
+
+            {/* Wetterparameter-Auswahl (Temperatur, Luftfeuchtigkeit, Niederschlag, Sonnenschein) */}
             <div className="col-12 col-lg-3">
               <ParameterSelector
                 {...selectedParams}
                 onChange={handleParamChange}
               />
             </div>
+
+            {/* Zusatzoptionen und Laden-Button */}
             <div className="col-12 col-lg-3">
               <div className="mb-3 mb-lg-4">
+                {/* Skalensynchronisierung: gleiche Y-Achsen-Grenzen für alle Stationen */}
                 <div className="form-check">
                   <input
                     type="checkbox"
@@ -164,6 +202,8 @@ export const Weather = () => {
                     Skalen angleichen
                   </label>
                 </div>
+
+                {/* Vollbild-Modus: container-fluid für maximale Diagrammbreite */}
                 <div className="form-check">
                   <input
                     type="checkbox"
@@ -178,6 +218,7 @@ export const Weather = () => {
                 </div>
               </div>
 
+              {/* Daten laden Button mit Ladezustand-Indikator */}
               <div className="d-grid d-lg-block">
                 <button
                   className="btn btn-primary"
@@ -197,6 +238,7 @@ export const Weather = () => {
             </div>
           </div>
 
+          {/* Warnung wenn keine Stationen in der URL übergeben wurden */}
           {stationIds.length === 0 && (
             <div className="alert alert-warning mt-3">
               Bitte wählen Sie zuerst Wetterstationen auf der <a href="/">Startseite</a> aus.
@@ -205,10 +247,13 @@ export const Weather = () => {
         </div>
       </div>
 
+      {/* Fehlermeldung bei API-Fehler */}
       {errorMessage && (
         <div className="alert alert-danger">{errorMessage}</div>
       )}
 
+      {/* Diagramme: für jede Station eine eigene Chart-Card.
+          Sortierung nach der ursprünglichen Auswahlreihenfolge (Reihenfolge im stationIds-Array). */}
       {weatherData?.features
         .sort((a, b) => {
           const indexA = stationIds.indexOf(a.properties.station);

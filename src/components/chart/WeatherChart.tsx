@@ -8,31 +8,43 @@ import type { ScaleConfig } from '../../hooks/useScaleSynchronization';
 import type { useInterpolatedData } from '../../hooks/useInterpolatedData';
 
 interface Props {
-  feature: Feature;
-  timestamps: string[];
-  selectedParams: ParameterSelection;
-  syncedScales?: ScaleConfig;
-  interpolatedDataCache: ReturnType<typeof useInterpolatedData>;
+  feature: Feature;           // API-Feature einer einzelnen Wetterstation
+  timestamps: string[];       // Zeitstempel für die X-Achse (ISO-Format)
+  selectedParams: ParameterSelection; // Welche Parameter angezeigt werden sollen
+  syncedScales?: ScaleConfig; // Synchronisierte Y-Achsen-Grenzen (optional)
+  interpolatedDataCache: ReturnType<typeof useInterpolatedData>; // Vorberechneter Datencache
 }
 
 type ParameterType = keyof ParameterSelection;
 type ApiParameter = 'TL' | 'RF' | 'RR' | 'SO';
 
+/** Konfiguration für einen darstellbaren Wetterparameter */
 interface ParameterConfig {
-  key: ParameterType;
-  apiParam: ApiParameter;
-  label: string;
-  seriesType: 'line' | 'bar';
+  key: ParameterType;         // Interner Schlüssel (z.B. 'temperature')
+  apiParam: ApiParameter;     // API-Parametername (z.B. 'TL')
+  label: string;              // Anzeigetext in Legende und Tooltip
+  seriesType: 'line' | 'bar'; // Diagrammtyp
 }
 
+/**
+ * Feste Konfiguration aller darstellbaren Wetterparameter.
+ * Reihenfolge bestimmt die Achsenreihenfolge im Diagramm:
+ * Erster Eintrag → linke Y-Achse, alle weiteren → rechte Y-Achsen.
+ */
 const PARAMETER_CONFIG: ParameterConfig[] = [
-  { key: 'temperature', apiParam: 'TL', label: 'Temperatur', seriesType: 'line' },
-  { key: 'humidity', apiParam: 'RF', label: 'Luftfeuchtigkeit', seriesType: 'line' },
-  { key: 'rainfall', apiParam: 'RR', label: 'Niederschlag', seriesType: 'line' },
-  { key: 'sunshine', apiParam: 'SO', label: 'Sonnenschein', seriesType: 'bar' }
+  { key: 'temperature', apiParam: 'TL', label: 'Temperatur',      seriesType: 'line' },
+  { key: 'humidity',    apiParam: 'RF', label: 'Luftfeuchtigkeit', seriesType: 'line' },
+  { key: 'rainfall',   apiParam: 'RR', label: 'Niederschlag',     seriesType: 'line' },
+  { key: 'sunshine',   apiParam: 'SO', label: 'Sonnenschein',     seriesType: 'bar'  }
 ];
 
-// Custom Hook für ECharts mit Tree-Shaking
+/**
+ * Custom Hook: ECharts-Instanz verwalten.
+ *
+ * Initialisiert den Chart einmalig auf dem DOM-Element, aktualisiert ihn bei
+ * Optionsänderungen und räumt die Instanz beim Unmount auf. Durch useRef
+ * wird der Chart-Container direkt referenziert ohne React-Re-Renders auszulösen.
+ */
 function useECharts(option: any) {
   const chartRef = useRef<HTMLDivElement>(null);
   const instanceRef = useRef<echarts.ECharts | null>(null);
@@ -40,15 +52,15 @@ function useECharts(option: any) {
   useEffect(() => {
     if (!chartRef.current) return;
 
-    // Chart nur einmal initialisieren
+    // Chart nur einmalig initialisieren (nicht bei jedem Re-Render neu erstellen)
     if (!instanceRef.current) {
       instanceRef.current = echarts.init(chartRef.current);
     }
 
-    // Option aktualisieren
+    // Optionen aktualisieren (notMerge: altes State vollständig ersetzen)
     instanceRef.current.setOption(option, { notMerge: true, lazyUpdate: true });
 
-    // Cleanup beim Unmount
+    // Cleanup: Chart-Instanz beim Unmount freigeben
     return () => {
       instanceRef.current?.dispose();
       instanceRef.current = null;
@@ -58,29 +70,43 @@ function useECharts(option: any) {
   return chartRef;
 }
 
+/**
+ * WeatherChart-Komponente: ECharts-Diagramm für eine einzelne Wetterstation.
+ *
+ * Rendert bis zu 4 Y-Achsen (eine pro Parameter): die erste links, alle weiteren
+ * rechts mit je 56px Abstand. Für jede Achse wird ein kleines Einheitensymbol
+ * als ECharts-Graphic über dem Diagrammbereich eingeblendet.
+ *
+ * Umwickelt mit React.memo, um unnötige Re-Renders bei unveränderten Props zu vermeiden.
+ */
 const WeatherChartComponent = ({ feature, timestamps, selectedParams, syncedScales, interpolatedDataCache }: Props) => {
+
+  /**
+   * ECharts-Optionsobjekt: wird nur neu berechnet wenn sich relevante Props ändern.
+   * Beinhaltet Y-Achsen, Serien, Grid, Legende, Tooltip und Achsensymbole.
+   */
   const option = useMemo(() => {
-    const labels = timestamps.map(formatTimestamp);
+    const labels = timestamps.map(formatTimestamp); // Zeitstempel in lesbares Format umwandeln
     const yAxis: Record<string, unknown>[] = [];
     const series: Record<string, unknown>[] = [];
     const params = feature.properties.parameters;
 
-    let rightAxisCount = 0;
+    let rightAxisCount = 0; // Zähler für rechte Y-Achsen (bestimmt den Offset)
 
+    // --- Y-Achsen und Serien aufbauen ---
     for (const config of PARAMETER_CONFIG) {
-      if (!selectedParams[config.key]) {
-        continue;
-      }
+      // Überspringe nicht ausgewählte Parameter
+      if (!selectedParams[config.key]) continue;
 
+      // Überspringe Parameter die in den API-Daten nicht vorhanden sind
       const parameter = params[config.apiParam];
-      if (!parameter) {
-        continue;
-      }
+      if (!parameter) continue;
 
       const yAxisId = getYAxisId(config.key);
       const yAxisIndex = yAxis.length;
       const isFirstAxis = yAxisIndex === 0;
       const position = isFirstAxis ? 'left' : 'right';
+      // Jede rechte Achse wird um 56px nach außen versetzt um Überlappung zu verhindern
       const offset = isFirstAxis ? 0 : rightAxisCount * 56;
       const syncedScale = syncedScales?.[yAxisId];
 
@@ -88,14 +114,15 @@ const WeatherChartComponent = ({ feature, timestamps, selectedParams, syncedScal
         rightAxisCount += 1;
       }
 
-      // Nutze gecachte Interpolation (verhindert doppelte Berechnungen)
+      // Vorberechnete interpolierte Daten aus dem Cache holen
       const interpolatedData = interpolatedDataCache.get(feature.properties.station, config.apiParam);
 
-      // Berechne lokale Min/Max wenn keine Synchronisierung aktiv ist
+      // Y-Achsen-Grenzen: entweder synchronisiert (alle Stationen gleich) oder lokal (nur diese Station)
       let localMin: number | undefined = syncedScale?.min;
       let localMax: number | undefined = syncedScale?.max;
 
       if (!syncedScale && interpolatedData && interpolatedData.length > 0) {
+        // Keine Synchronisierung aktiv: lokale Min/Max-Werte dieser Station berechnen
         localMin = Math.min(...interpolatedData);
         localMax = Math.max(...interpolatedData);
       }
@@ -109,7 +136,7 @@ const WeatherChartComponent = ({ feature, timestamps, selectedParams, syncedScal
         max: localMax,
         axisLine: { show: true },
         axisTick: { show: true },
-        splitLine: { show: isFirstAxis },
+        splitLine: { show: isFirstAxis }, // Gitterlinien nur für die erste (linke) Achse
         axisLabel: { color: '#cbd5e1' },
         name: '',
         nameLocation: 'end',
@@ -122,8 +149,8 @@ const WeatherChartComponent = ({ feature, timestamps, selectedParams, syncedScal
         yAxisIndex,
         data: interpolatedData || [],
         smooth: false,
-        symbol: 'none',
-        barMaxWidth: 18,
+        symbol: 'none',       // Keine Datenpunkte an jedem Messwert
+        barMaxWidth: 18,      // Maximale Balkenbreite für Sonnenschein-Balken
         lineStyle: {
           width: 2,
           color: getParameterColor(config.key)
@@ -132,33 +159,31 @@ const WeatherChartComponent = ({ feature, timestamps, selectedParams, syncedScal
           color: getParameterColor(config.key)
         },
         emphasis: {
-          focus: 'series'
+          focus: 'series'     // Beim Hover: Fokus auf die gesamte Serie
         }
       });
     }
 
+    // Rechter Grid-Rand: Platz für alle rechten Y-Achsen einplanen
     const rightGridPadding = 56 + Math.max(0, rightAxisCount - 1) * 56;
 
-    // Generate axis symbol graphics
+    // --- Achsensymbole (ECharts Graphics) aufbauen ---
+    // Kleine Icon-Symbole über jeder Y-Achse zeigen Diagrammtyp und Einheit an
     const graphics: any[] = [];
     let graphicIndex = 0;
     let rightGraphicCount = 0;
 
-    // Count total parameters for right axes positioning
+    // Gesamtanzahl der rechten Achsen für die umgekehrte Positionierung ermitteln
     const totalParams = PARAMETER_CONFIG.filter(c =>
       selectedParams[c.key] && params[c.apiParam]
     ).length;
     const totalRightAxes = totalParams - 1;
 
     for (const config of PARAMETER_CONFIG) {
-      if (!selectedParams[config.key]) {
-        continue;
-      }
+      if (!selectedParams[config.key]) continue;
 
       const parameter = params[config.apiParam];
-      if (!parameter) {
-        continue;
-      }
+      if (!parameter) continue;
 
       const isFirstAxis = graphicIndex === 0;
       const position = isFirstAxis ? 'left' : 'right';
@@ -166,10 +191,9 @@ const WeatherChartComponent = ({ feature, timestamps, selectedParams, syncedScal
       const unit = getParameterUnit(config.key);
       const isBar = config.seriesType === 'bar';
 
-      // Calculate positioning
-      const yPosition = 30;
+      const yPosition = 30; // Vertikale Position der Symbole (über dem Diagrammbereich)
 
-      // Create graphic group for this axis
+      // Gruppe für das Achsensymbol (enthält Icon + Einheitentext)
       const graphicGroup: any = {
         type: 'group',
         top: yPosition,
@@ -178,9 +202,11 @@ const WeatherChartComponent = ({ feature, timestamps, selectedParams, syncedScal
       };
 
       if (position === 'left') {
+        // Linke Achse: Symbol am linken Rand positionieren
         graphicGroup.left = 48;
       } else {
-        // Right axes: position from right edge (reversed order)
+        // Rechte Achsen: von rechts positioniert, in umgekehrter Reihenfolge
+        // damit die Achsenreihenfolge mit der Legendenreihenfolge übereinstimmt
         graphicGroup.right = 12 + ((totalRightAxes - rightGraphicCount - 1) * 56);
         rightGraphicCount++;
       }
@@ -188,7 +214,7 @@ const WeatherChartComponent = ({ feature, timestamps, selectedParams, syncedScal
       graphicIndex++;
 
       if (isBar) {
-        // BAR SYMBOL: [▌▌]
+        // Balkensymbol: [▌▌] – zwei Rechtecke unterschiedlicher Höhe
         graphicGroup.children.push(
           {
             type: 'rect',
@@ -202,7 +228,7 @@ const WeatherChartComponent = ({ feature, timestamps, selectedParams, syncedScal
           }
         );
       } else {
-        // LINE SYMBOL: [—●—]
+        // Liniensymbol: [—●—] – Linie mit Mittelpunkt
         graphicGroup.children.push(
           {
             type: 'line',
@@ -222,7 +248,7 @@ const WeatherChartComponent = ({ feature, timestamps, selectedParams, syncedScal
         );
       }
 
-      // Add unit text next to symbol in parentheses
+      // Einheitentext neben dem Symbol (z.B. "°C", "%", "mm", "min")
       graphicGroup.children.push({
         type: 'text',
         style: {
@@ -237,8 +263,9 @@ const WeatherChartComponent = ({ feature, timestamps, selectedParams, syncedScal
       graphics.push(graphicGroup);
     }
 
+    // --- Vollständiges ECharts-Optionsobjekt zusammenstellen ---
     return {
-      animation: false,
+      animation: false, // Animation deaktiviert für bessere Performance bei vielen Datenpunkten
       graphic: graphics,
       grid: {
         top: 56,
@@ -254,17 +281,17 @@ const WeatherChartComponent = ({ feature, timestamps, selectedParams, syncedScal
         }
       },
       tooltip: {
-        trigger: 'axis'
+        trigger: 'axis' // Tooltip für alle Serien am gleichen Zeitpunkt
       },
       xAxis: {
         type: 'category',
         data: labels,
-        boundaryGap: false,
+        boundaryGap: false, // Linie beginnt am linken Rand (kein Einzug)
         axisLine: { lineStyle: { color: '#64748b' } },
         axisLabel: {
           color: '#cbd5e1',
-          rotate: 45,
-          interval: 'auto',
+          rotate: 45,       // 45° Drehung für bessere Lesbarkeit bei vielen Labels
+          interval: 'auto', // ECharts bestimmt automatisch welche Labels angezeigt werden
           hideOverlap: true,
           margin: 12
         }
@@ -283,5 +310,5 @@ const WeatherChartComponent = ({ feature, timestamps, selectedParams, syncedScal
   );
 };
 
-// React.memo verhindert unnötige Re-Renders wenn Props unverändert sind
+// React.memo: verhindert unnötige Re-Renders wenn Props unverändert sind
 export const WeatherChart = memo(WeatherChartComponent);
