@@ -44,7 +44,7 @@ export const ParameterSelector = ({ temperature, humidity, rainfall, sunshine, o
           checked={humidity}
           onChange={(e) => onChange('humidity', e.target.checked)}
         />
-        <label className="form-check-label" htmlFor="param-humid">Luftfeuchtigkeit</label>
+        <label className="form-check-label" htmlFor="param-humid">rel. Luftfeuchte</label>
       </div>
 
       {/* Niederschlag */}

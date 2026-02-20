@@ -56,7 +56,8 @@ const StationCardComponent = ({ station, selected, disabled, onToggle }: Props) 
             htmlFor={`station-${station.id}`}
             style={{
               cursor: disabled ? 'not-allowed' : 'pointer',
-              color: '#e5e7eb'
+              color: '#e5e7eb',
+              marginLeft: '0.6rem'
             }}
           >
             {/* Stationsname prominent, ID als kleinerer Hinweistext */}

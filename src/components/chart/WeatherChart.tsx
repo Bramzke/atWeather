@@ -33,7 +33,7 @@ interface ParameterConfig {
  */
 const PARAMETER_CONFIG: ParameterConfig[] = [
   { key: 'temperature', apiParam: 'TL', label: 'Temperatur',      seriesType: 'line' },
-  { key: 'humidity',    apiParam: 'RF', label: 'Luftfeuchtigkeit', seriesType: 'line' },
+  { key: 'humidity',    apiParam: 'RF', label: 'rel. Luftfeuchte', seriesType: 'line' },
   { key: 'rainfall',   apiParam: 'RR', label: 'Niederschlag',     seriesType: 'line' },
   { key: 'sunshine',   apiParam: 'SO', label: 'Sonnenschein',     seriesType: 'bar'  }
 ];
