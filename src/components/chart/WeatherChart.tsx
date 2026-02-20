@@ -136,7 +136,7 @@ const WeatherChartComponent = ({ feature, timestamps, selectedParams, syncedScal
         max: localMax,
         axisLine: { show: true },
         axisTick: { show: true },
-        splitLine: { show: isFirstAxis }, // Gitterlinien nur für die erste (linke) Achse
+        splitLine: { show: isFirstAxis, lineStyle: { color: '#64748b' } }, // Gitterlinien nur für die erste (linke) Achse
         axisLabel: { color: '#cbd5e1' },
         name: '',
         nameLocation: 'end',
@@ -287,7 +287,7 @@ const WeatherChartComponent = ({ feature, timestamps, selectedParams, syncedScal
         type: 'category',
         data: labels,
         boundaryGap: false, // Linie beginnt am linken Rand (kein Einzug)
-        axisLine: { lineStyle: { color: '#64748b' } },
+        axisLine: { lineStyle: { color: '#cbd5e1' } },
         axisLabel: {
           color: '#cbd5e1',
           rotate: 45,       // 45° Drehung für bessere Lesbarkeit bei vielen Labels
