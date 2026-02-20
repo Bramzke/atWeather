@@ -60,8 +60,16 @@ function useECharts(option: any) {
     // Optionen aktualisieren (notMerge: altes State vollständig ersetzen)
     instanceRef.current.setOption(option, { notMerge: true, lazyUpdate: true });
 
-    // Cleanup: Chart-Instanz beim Unmount freigeben
+    // ResizeObserver: Chart neu zeichnen wenn sich die Container-Größe ändert.
+    // Reagiert sowohl auf Fenstergrößenänderungen als auch auf den Vollbild-Toggle.
+    const resizeObserver = new ResizeObserver(() => {
+      instanceRef.current?.resize();
+    });
+    resizeObserver.observe(chartRef.current);
+
+    // Cleanup: Observer und Chart-Instanz beim Unmount freigeben
     return () => {
+      resizeObserver.disconnect();
       instanceRef.current?.dispose();
       instanceRef.current = null;
     };
