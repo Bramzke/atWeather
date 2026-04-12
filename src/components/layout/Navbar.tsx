@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { HouseIcon, ArrowUpRightIcon } from '../ui/Icons';
 
@@ -11,8 +12,14 @@ import { HouseIcon, ArrowUpRightIcon } from '../ui/Icons';
  *
  * Verwendet Bootstrap-Glass-Effekt (.navbar-glass) für ein transparentes,
  * verschwommenes Erscheinungsbild. Kollabierbar auf kleinen Bildschirmen.
+ *
+ * Der Collapse-State wird per React-State gesteuert (kein Bootstrap JS nötig),
+ * da Bootstrap JS in React-Projekten zu Konflikten führen kann.
  */
 export const Navbar = () => {
+  // Steuert ob das Menü in der mobilen Ansicht aufgeklappt ist
+  const [isOpen, setIsOpen] = useState(false);
+
   return (
     <nav className="navbar navbar-expand-lg navbar-dark navbar-glass mb-2">
       <div className="container-fluid">
@@ -20,25 +27,25 @@ export const Navbar = () => {
         {/* Brand-Link: führt zur Startseite */}
         <Link className="navbar-brand" to="/">WeatherChart</Link>
 
-        {/* Hamburger-Button für mobile Ansicht (Bootstrap-Collapse) */}
+        {/* Hamburger-Button für mobile Ansicht: toggelt isOpen per React-State */}
         <button
           className="navbar-toggler"
           type="button"
-          data-bs-toggle="collapse"
-          data-bs-target="#navbarNav"
           aria-controls="navbarNav"
-          aria-expanded="false"
+          aria-expanded={isOpen}
           aria-label="Toggle navigation"
+          onClick={() => setIsOpen(prev => !prev)}
         >
           <span className="navbar-toggler-icon"></span>
         </button>
 
-        <div className="collapse navbar-collapse" id="navbarNav">
+        {/* Menüinhalt: Bootstrap-Klassen für Animation + show wenn isOpen */}
+        <div className={`collapse navbar-collapse ${isOpen ? 'show' : ''}`} id="navbarNav">
 
           {/* Linke Navigation: App-interne Links */}
           <ul className="navbar-nav">
             <li className="nav-item">
-              <Link className="nav-link" to="/">
+              <Link className="nav-link" to="/" onClick={() => setIsOpen(false)}>
                 <HouseIcon /> Stationen
               </Link>
             </li>
