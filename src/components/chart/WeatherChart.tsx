@@ -13,6 +13,10 @@ interface Props {
   selectedParams: ParameterSelection; // Welche Parameter angezeigt werden sollen
   syncedScales?: ScaleConfig; // Synchronisierte Y-Achsen-Grenzen (optional)
   interpolatedDataCache: ReturnType<typeof useInterpolatedData>; // Vorberechneter Datencache
+  groupId?: string;           // ECharts-Gruppenname für Crosshair-Synchronisierung
+  chartIndex?: number;        // Position dieser Chart in der Anzeigereihenfolge (oben = 0)
+  hoveredChartIndex?: number | null; // Index der aktuell gehöverten Chart
+  onHoverChange?: (index: number | null) => void; // Callback bei Hover-Eintritt/-Austritt
 }
 
 type ParameterType = keyof ParameterSelection;
@@ -45,7 +49,7 @@ const PARAMETER_CONFIG: ParameterConfig[] = [
  * Optionsänderungen und räumt die Instanz beim Unmount auf. Durch useRef
  * wird der Chart-Container direkt referenziert ohne React-Re-Renders auszulösen.
  */
-function useECharts(option: any) {
+function useECharts(option: any, groupId?: string) {
   const chartRef = useRef<HTMLDivElement>(null);
   const instanceRef = useRef<echarts.ECharts | null>(null);
 
@@ -60,6 +64,12 @@ function useECharts(option: any) {
     // Optionen aktualisieren (notMerge: altes State vollständig ersetzen)
     instanceRef.current.setOption(option, { notMerge: true, lazyUpdate: true });
 
+    // ECharts-Gruppe registrieren: ermöglicht Crosshair-Synchronisierung über alle Charts
+    if (groupId) {
+      instanceRef.current.group = groupId;
+      echarts.connect(groupId);
+    }
+
     // ResizeObserver: Chart neu zeichnen wenn sich die Container-Größe ändert.
     // Reagiert sowohl auf Fenstergrößenänderungen als auch auf den Vollbild-Toggle.
     const resizeObserver = new ResizeObserver(() => {
@@ -73,7 +83,7 @@ function useECharts(option: any) {
       instanceRef.current?.dispose();
       instanceRef.current = null;
     };
-  }, [option]);
+  }, [option, groupId]);
 
   return chartRef;
 }
@@ -87,7 +97,26 @@ function useECharts(option: any) {
  *
  * Umwickelt mit React.memo, um unnötige Re-Renders bei unveränderten Props zu vermeiden.
  */
-const WeatherChartComponent = ({ feature, timestamps, selectedParams, syncedScales, interpolatedDataCache }: Props) => {
+const WeatherChartComponent = ({
+  feature, timestamps, selectedParams, syncedScales, interpolatedDataCache,
+  groupId, chartIndex, hoveredChartIndex, onHoverChange
+}: Props) => {
+
+  // Relative Position dieser Chart zur aktuell gehöverten (für Tooltip-Platzierung).
+  // Ref statt State: der Tooltip-Formatter liest den Wert direkt ohne Re-Render.
+  const relPosRef = useRef<'above' | 'below' | null>(null);
+
+  useEffect(() => {
+    if (hoveredChartIndex == null || chartIndex == null) {
+      relPosRef.current = null;
+    } else if (chartIndex < hoveredChartIndex) {
+      relPosRef.current = 'above'; // Diese Chart liegt über der gehöverten → Tooltip unten
+    } else if (chartIndex > hoveredChartIndex) {
+      relPosRef.current = 'below'; // Diese Chart liegt unter der gehöverten → Tooltip oben
+    } else {
+      relPosRef.current = null;    // Diese Chart ist die gehöverte → normale Position
+    }
+  }, [hoveredChartIndex, chartIndex]);
 
   /**
    * ECharts-Optionsobjekt: wird nur neu berechnet wenn sich relevante Props ändern.
@@ -289,7 +318,18 @@ const WeatherChartComponent = ({ feature, timestamps, selectedParams, syncedScal
         }
       },
       tooltip: {
-        trigger: 'axis' // Tooltip für alle Serien am gleichen Zeitpunkt
+        trigger: 'axis', // Tooltip für alle Serien am gleichen Zeitpunkt
+        // Position abhängig davon ob diese Chart über oder unter der gehöverten liegt:
+        // über der gehöverten → Tooltip am unteren Rand; darunter → am oberen Rand
+        position: (point: number[], _p: unknown, _d: unknown, _r: unknown, size: { viewSize: number[]; contentSize: number[] }) => {
+          const rel = relPosRef.current;
+          if (rel === 'above') return [point[0], size.viewSize[1] - size.contentSize[1] - 10];
+          if (rel === 'below') return [point[0], 10];
+          // Gehöverte Chart: Cursor-nahe Positionierung, Overflow vermeiden
+          const x = point[0] + size.contentSize[0] + 15 > size.viewSize[0] ? point[0] - size.contentSize[0] - 5 : point[0] + 15;
+          const y = point[1] + size.contentSize[1] + 5 > size.viewSize[1] ? point[1] - size.contentSize[1] - 5 : point[1] + 5;
+          return [x, y];
+        }
       },
       xAxis: {
         type: 'category',
@@ -309,10 +349,15 @@ const WeatherChartComponent = ({ feature, timestamps, selectedParams, syncedScal
     };
   }, [feature, selectedParams, syncedScales, timestamps, interpolatedDataCache]);
 
-  const chartRef = useECharts(option);
+  const chartRef = useECharts(option, groupId);
 
   return (
-    <div className="chart-container" style={{ position: 'relative', height: '600px' }}>
+    <div
+      className="chart-container"
+      style={{ position: 'relative', height: '600px' }}
+      onMouseEnter={() => onHoverChange?.(chartIndex ?? null)}
+      onMouseLeave={() => onHoverChange?.(null)}
+    >
       <div ref={chartRef} style={{ height: '100%', width: '100%' }} />
     </div>
   );

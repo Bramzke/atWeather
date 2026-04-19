@@ -53,6 +53,7 @@ export const Weather = () => {
 
   const [syncScales, setSyncScales] = useState(true);     // Skalensynchronisierung aktiv
   const [isFullscreen, setIsFullscreen] = useState(true);  // Vollbild-Modus aktiv
+  const [hoveredChartIndex, setHoveredChartIndex] = useState<number | null>(null); // Index der gehöverten Chart
 
   // --- Performance-Optimierungen ---
   // Interpolations-Cache: berechnet fehlende Messwerte einmalig für alle Charts
@@ -67,6 +68,11 @@ export const Weather = () => {
 
   const handleFullscreenChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setIsFullscreen(e.target.checked);
+  }, []);
+
+  // Callback für Hover-Ereignisse der Charts (stabile Referenz via useCallback)
+  const handleHoverChange = useCallback((index: number | null) => {
+    setHoveredChartIndex(index);
   }, []);
 
   const handleStartDateChange = useCallback((date: Date | null) => {
@@ -260,7 +266,7 @@ export const Weather = () => {
           const indexB = stationIds.indexOf(b.properties.station);
           return indexA - indexB;
         })
-        .map(feature => {
+        .map((feature, chartIndex) => {
           const station = getStationById(feature.properties.station);
           // Letzten nicht-null Temperaturwert für die Anzeige im Card-Header ermitteln
           const lastTemp = feature.properties.parameters.TL?.data
@@ -285,6 +291,10 @@ export const Weather = () => {
                   selectedParams={selectedParams}
                   syncedScales={syncedScales}
                   interpolatedDataCache={interpolatedDataCache}
+                  groupId="weather-charts"
+                  chartIndex={chartIndex}
+                  hoveredChartIndex={hoveredChartIndex}
+                  onHoverChange={handleHoverChange}
                 />
               </div>
             </div>
