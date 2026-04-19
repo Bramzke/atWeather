@@ -262,10 +262,21 @@ export const Weather = () => {
         })
         .map(feature => {
           const station = getStationById(feature.properties.station);
+          // Letzten nicht-null Temperaturwert für die Anzeige im Card-Header ermitteln
+          const lastTemp = feature.properties.parameters.TL?.data
+            ? [...feature.properties.parameters.TL.data].reverse().find(v => v !== null) ?? null
+            : null;
           return (
             <div key={station.id} className="card mb-4">
               <div className="card-header">
-                <h3 className="h5 mb-0 text-center">{station.name}</h3>
+                <h3 className="h5 mb-0 text-center">
+                  {station.name}
+                  {lastTemp !== null && (
+                    <span className="text-muted ms-2 fw-normal fs-6">
+                      (zul. {lastTemp.toLocaleString('de-AT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}°C)
+                    </span>
+                  )}
+                </h3>
               </div>
               <div className="card-body">
                 <WeatherChart
